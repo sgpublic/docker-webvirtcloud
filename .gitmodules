@@ -1,0 +1,3 @@
+[submodule "webvirtcloud"]
+	path = webvirtcloud
+	url = https://github.com/retspen/webvirtcloud.git

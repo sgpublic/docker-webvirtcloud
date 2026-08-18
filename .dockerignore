@@ -1,0 +1,6 @@
+.git
+.idea
+webvirtcloud/.git
+**/.git
+**/__pycache__
+**/*.pyc
