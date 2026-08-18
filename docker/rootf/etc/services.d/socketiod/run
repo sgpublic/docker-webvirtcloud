@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /srv/webvirtcloud/venv/bin/python /srv/webvirtcloud/console/socketiod -d

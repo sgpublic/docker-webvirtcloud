@@ -1,4 +1,4 @@
-FROM ubuntu:24.04
+FROM jlesage/baseimage:ubuntu-24.04-v3
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -8,8 +8,12 @@ ENV LANG=C.UTF-8 \
     PYTHONUNBUFFERED=1 \
     PATH=/srv/webvirtcloud/venv/bin:$PATH
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+# nginx package scripts expect the traditional www-data account.  The
+# baseimage generates /etc/passwd dynamically, so define this account before
+# installing packages that reference it.
+COPY docker/rootf/etc/cont-users.d /etc/cont-users.d
+
+RUN /opt/base/bin/add-pkg \
         ca-certificates \
         python3 \
         python3-venv \
@@ -25,15 +29,10 @@ RUN apt-get update \
         pkg-config \
         gcc \
         nginx \
-        supervisor \
-        passwd \
-    && rm -rf /var/lib/apt/lists/*
+        passwd
 
 # WebVirtCloud upstream submodule
 COPY webvirtcloud/ /srv/webvirtcloud/
-
-# Build/runtime helpers (entrypoint, supervisor config, settings generator)
-COPY docker/rootf/ /
 
 WORKDIR /srv/webvirtcloud
 
@@ -43,24 +42,25 @@ RUN python3 -m venv venv \
     && venv/bin/pip install --no-cache-dir -r conf/requirements.txt \
     && venv/bin/pip install --no-cache-dir psycopg2-binary
 
+# Build/runtime helpers (initialization script, services, settings generator)
+COPY docker/rootf/ /
+
 # nginx
 RUN rm -f /etc/nginx/sites-enabled/default \
-    && cp conf/nginx/webvirtcloud.conf /etc/nginx/conf.d/webvirtcloud.conf \
-    && printf '\ndaemon off;\n' >> /etc/nginx/nginx.conf
+    && cp conf/nginx/webvirtcloud.conf /etc/nginx/conf.d/webvirtcloud.conf
 
-# Persistent data dir (secret key, sqlite fallback db, logs)
+# Persistent data dir (secret key, sqlite fallback db, logs).  Ownership is
+# applied by the baseimage initialization script because USER_ID/GROUP_ID are
+# runtime settings.
 RUN mkdir -p /var/lib/webvirtcloud /run/nginx \
-    && chmod +x /docker-entrypoint.sh /usr/local/bin/wvc-config.py \
-    && chown -R www-data:www-data \
-        /srv/webvirtcloud \
-        /var/lib/webvirtcloud \
-        /run/nginx \
-        /var/lib/nginx \
-        /var/log/nginx
+    && chmod +x \
+        /etc/cont-init.d/50-webvirtcloud.sh \
+        /etc/services.d/novncd/run \
+        /etc/services.d/socketiod/run \
+        /etc/services.d/nginx/run \
+        /startapp.sh \
+        /usr/local/bin/wvc-config.py
 
 VOLUME /var/lib/webvirtcloud
 
 EXPOSE 80
-
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]

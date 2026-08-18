@@ -33,14 +33,12 @@ services:
       # Optional: set a fixed SECRET_KEY. If omitted, one is auto-generated
       # and persisted in the wvcdata volume.
       # SECRET_KEY: your-secret-key
-      # GID of the host's libvirt group. Lets the container user open the
-      # mounted host libvirt socket. Find it on the host with:
-      #   getent group libvirt
-      LIBVIRT_GID: "${LIBVIRT_GID:-64055}"
-    # Add the host libvirt group GID to the container process (works together
-    # with the group setup done in the entrypoint).
-    group_add:
-      - "${LIBVIRT_GID:-64055}"
+      # Runtime UID/GID for WebVirtCloud. The baseimage creates the app user
+      # with these IDs during container startup.
+      USER_ID: "${USER_ID:-33}"
+      GROUP_ID: "${GROUP_ID:-33}"
+      # Supplementary groups, including the host libvirt socket group.
+      SUP_GROUP_IDS: "${SUP_GROUP_IDS:-105}"
     ports:
       - "80:80"
     volumes:
